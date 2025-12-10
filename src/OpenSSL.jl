@@ -1459,7 +1459,7 @@ end
 function ec_generate_key(curvename::AbstractString)::EC
     found = filter(x -> x.name == curvename, ec_builtin_curves())
     if length(found) == 0
-        error("No built in curve with name '$curvename' exists")
+        throw(ArgumentError("No built in curve with name '$curvename' exists"))
     end
     nid = first(found).id
     return ec_generate_key(nid)

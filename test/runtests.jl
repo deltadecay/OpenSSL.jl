@@ -578,6 +578,14 @@ end
 end
 
 @testset "EC" begin
+
+    eckey = EvpPKey(EC())
+    @test eckey.key_type == OpenSSL.EVP_PKEY_EC
+    free(eckey)
+
+    @test_throws OpenSSL.OpenSSLError ec_generate_key(Int32(-1))
+    @test_throws ArgumentError ec_generate_key("XXXX Non existing curve name XXXX")
+
     curves = ec_builtin_curves()
     if length(curves) > 0
         builtincurve = first(curves)
