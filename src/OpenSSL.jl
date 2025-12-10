@@ -1443,7 +1443,10 @@ function free(ec::EC)
 end
 
 """
-    Generate EC key pair.
+    ec_generate_key(nid)
+    
+Generate EC key pair from a curve identifier. See ec_builtin_curves().
+
 """
 function ec_generate_key(nid::Int32)::EC
     ecptr = ccall(
@@ -1456,6 +1459,15 @@ function ec_generate_key(nid::Int32)::EC
     return EC(ecptr)
 end
 
+"""
+    ec_generate_key(curvename)
+
+Generate EC key pair from a curve name. See ec_builtin_curves(). Note! the names are
+only loaded in OpenSSL v3, in earlier version the names are the empty string. Use instead
+ec_generate_key(nid) where nid is the numeric curve identifier.
+
+!!! compat "OpenSSL v3" `ec_generate_key(curvename)` is only available with version 3 of the OpenSSL_jll
+"""
 function ec_generate_key(curvename::AbstractString)::EC
     found = filter(x -> x.name == curvename, ec_builtin_curves())
     if length(found) == 0
@@ -1478,9 +1490,15 @@ struct _EC_builtin_curve
 end
 
 """
-    Get all the builtin curves. Use id or name when calling ec_generate_key.
+    ec_builtin_curves()
+
+Get all the builtin curves. Use id or name when calling ec_generate_key.
+Note! Curve names are only loaded in OpenSSL v3 and not available in earlier versions.
+    
 """
 function ec_builtin_curves()
+    version = OpenSSL.version_number()
+
     curves = Vector{ECBuiltinCurve}()
     ncurves = ccall(
         (:EC_get_builtin_curves, libcrypto),
@@ -1503,13 +1521,15 @@ function ec_builtin_curves()
             name = ""
             nid = convert(Int32, ecbc.nid)
             comment = String(unsafe_string(ecbc.comment))
-            namecptr = ccall(
-                (:OSSL_EC_curve_nid2name, libcrypto),
-                Ptr{Cchar},
-                (Cint,),
-                ecbc.nid) 
-            if namecptr != C_NULL
-                name = String(unsafe_string(namecptr))
+            if version >= v"3.0"
+                namecptr = ccall(
+                    (:OSSL_EC_curve_nid2name, libcrypto),
+                    Ptr{Cchar},
+                    (Cint,),
+                    ecbc.nid) 
+                if namecptr != C_NULL
+                    name = String(unsafe_string(namecptr))
+                end
             end
             push!(curves, ECBuiltinCurve(nid, name, comment))
         end
